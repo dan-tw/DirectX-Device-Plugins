@@ -3,10 +3,10 @@ Param (
 	[switch] $Clean,
 	
 	[parameter(HelpMessage = "The AWS region in which to deploy resources")]
-	$Region = 'us-east-1',
+	$Region = 'ap-southeast-2',
 	
 	[parameter(HelpMessage = "The name to use for the custom worker node AMI")]
-	$AmiName = 'eks-worker-node',
+	$AmiName = 'eks-windows-worker-126-v1',
 	
 	[parameter(HelpMessage = "The name to use for the EKS cluster")]
 	$ClusterName = 'demo-cluster'
@@ -280,26 +280,26 @@ if ($packerManifest.Exists() -eq $false)
 # Parse the Packer manifest JSON and validate the AMI details
 $packerManifest.Parse()
 
-# Populate the cluster template YAML with the values for the AMI
-$clusterDir = "$PSScriptRoot\cluster"
-$configFile = "$clusterDir\test-cluster.yml"
-FillTemplate `
-	-Template "$clusterDir\test-cluster.template" `
-	-Rendered $configFile `
-	-Values @{
-		'__CLUSTER_NAME__' = $global:ClusterName;
-		'__AWS_REGION__' = $packerManifest.AmiRegion;
-		'__AMI_ID__' = $packerManifest.AmiID
-	}
+# # Populate the cluster template YAML with the values for the AMI
+# $clusterDir = "$PSScriptRoot\cluster"
+# $configFile = "$clusterDir\test-cluster.yml"
+# FillTemplate `
+# 	-Template "$clusterDir\test-cluster.template" `
+# 	-Rendered $configFile `
+# 	-Values @{
+# 		'__CLUSTER_NAME__' = $global:ClusterName;
+# 		'__AWS_REGION__' = $packerManifest.AmiRegion;
+# 		'__AMI_ID__' = $packerManifest.AmiID
+# 	}
 
-# Deploy the test EKS cluster if it doesn't already exist
-if ($eksCluster.Exists() -eq $false)
-{
-	Write-Host 'Deploying a test EKS cluster with a Windows worker node group using the custom AMI...' -ForegroundColor Green
-	$eksCluster.Create($configFile)
-}
+# # Deploy the test EKS cluster if it doesn't already exist
+# if ($eksCluster.Exists() -eq $false)
+# {
+# 	Write-Host 'Deploying a test EKS cluster with a Windows worker node group using the custom AMI...' -ForegroundColor Green
+# 	$eksCluster.Create($configFile)
+# }
 
-# Deploy the device plugin DaemonSets to the test cluster
-Write-Host 'Deploying the DirectX device plugin DaemonSets to the test EKS cluster...' -ForegroundColor Green
-$deploymentsYaml = "$PSScriptRoot\..\..\deployments\default-daemonsets.yml"
-[ExecutionHelpers]::RunCommand('kubectl', @('apply', '-f', $deploymentsYaml.Replace('\', '/')))
+# # Deploy the device plugin DaemonSets to the test cluster
+# Write-Host 'Deploying the DirectX device plugin DaemonSets to the test EKS cluster...' -ForegroundColor Green
+# $deploymentsYaml = "$PSScriptRoot\..\..\deployments\default-daemonsets.yml"
+# [ExecutionHelpers]::RunCommand('kubectl', @('apply', '-f', $deploymentsYaml.Replace('\', '/')))
