@@ -6,7 +6,7 @@ Param (
 	$Region = 'ap-southeast-2',
 	
 	[parameter(HelpMessage = "The name to use for the custom worker node AMI")]
-	$AmiName = 'eks-windows-worker-126-v1',
+	$AmiName = 'eks-windows-worker-126-v3',
 	
 	[parameter(HelpMessage = "The name to use for the EKS cluster")]
 	$ClusterName = 'demo-cluster'
