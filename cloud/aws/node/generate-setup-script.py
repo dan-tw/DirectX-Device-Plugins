@@ -121,7 +121,7 @@ componentData = json.loads(Utility.capture([
 	'get-component',
 	'--region=us-east-1',
 	'--component-build-version-arn',
-	'arn:aws:imagebuilder:us-east-1:aws:component/eks-optimized-ami-windows/1.26.0/1'
+	'arn:aws:imagebuilder:us-east-1:aws:component/eks-optimized-ami-windows/1.30.0/1'
 ]))
 
 # Parse the pipeline YAML data and extract the list of constants
@@ -168,6 +168,21 @@ function PatchFile
 	Set-Content -Path $File -Value $patched -NoNewline
 }
 
+
+# Checks if the directory for a file exists if not created it
+function CreatePathIfNotExists
+{
+	Param (
+		$FilePath
+	)
+
+	$directoryPath = Split-Path -Path $FilePath
+
+	if (-not (Test-Path -Path $directoryPath)) {
+	    New-Item -Path $directoryPath -ItemType Directory
+	}
+
+}
 
 '''
 
@@ -341,6 +356,8 @@ for step in buildSteps:
 		commands = []
 		commands.append('$webClient = New-Object System.Net.WebClient')
 		for input in step['inputs']:
+			
+			commands.append('CreatePathIfNotExists -FilePath \'' + input['destination'] + '\'')
 			commands.append('$webClient.DownloadFile(\'' + input['source'] + '\', \'' + input['destination'] + '\')')
 
 		generated += '\n'.join([

@@ -6,7 +6,7 @@ Param (
 	$Region = 'ap-southeast-2',
 	
 	[parameter(HelpMessage = "The name to use for the custom worker node AMI")]
-	$AmiName = 'eks-windows-worker-126-v3',
+	$AmiName = 'eks-windows-worker-130-v3',
 	
 	[parameter(HelpMessage = "The name to use for the EKS cluster")]
 	$ClusterName = 'demo-cluster'
@@ -217,7 +217,7 @@ class EksCluster
 # Verify that all of the native commands we require are available
 $requiredCommands = @{
 	'the AWS CLI' = [ExecutionHelpers]::CommandExists('aws', @('help'));
-	'eksctl' = [ExecutionHelpers]::CommandExists('eksctl', @('version'));
+	#'eksctl' = [ExecutionHelpers]::CommandExists('eksctl', @('version'));
 	'kubectl' = [ExecutionHelpers]::CommandExists('kubectl', @('help'));
 	'HashiCorp Packer' = [ExecutionHelpers]::CommandExists('packer', @('version'))
 }
