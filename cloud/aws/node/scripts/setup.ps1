@@ -28,20 +28,35 @@ function PatchFile
 }
 
 
+# Checks if the directory for a file exists if not created it
+function CreatePathIfNotExists
+{
+	Param (
+		$FilePath
+	)
+
+	$directoryPath = Split-Path -Path $FilePath
+
+	if (-not (Test-Path -Path $directoryPath)) {
+	    New-Item -Path $directoryPath -ItemType Directory
+	}
+
+}
+
 # Constants
 $KubernetesPath = "$env:ProgramFiles\Kubernetes"
-$KubernetesDownload = "https://amazon-eks.s3.amazonaws.com/1.26.2/2023-03-17/bin/windows/amd64"
+$KubernetesDownload = "https://amazon-eks.s3.amazonaws.com/1.30.0/2024-05-12/bin/windows/amd64"
 $ContainerdPath = "$env:ProgramFiles\containerd"
 $EKSPath = "$env:ProgramFiles\Amazon\EKS"
 $DomainlessGmsaPath = "$EKSPath\gmsa-plugin"
 $CNIPath = "$EKSPath\cni"
-$CSIProxyPath = "$EKSPath\bin"
+$EKSBinPath = "$EKSPath\bin"
 $EKSLogsPath = "$env:ProgramData\Amazon\EKS\logs"
 $TempRoot = "C:\TempEKSArtifactDir"
 $TempPath = "$TempRoot\EKS-Artifacts"
 
 # Create each of our directories
-foreach ($dir in @($ContainerdPath, $KubernetesPath, $EKSPath, $CNIPath, $CSIProxyPath, $EKSLogsPath, $DomainlessGmsaPath, $TempRoot)) {
+foreach ($dir in @($ContainerdPath, $KubernetesPath, $EKSPath, $CNIPath, $EKSBinPath, $EKSLogsPath, $DomainlessGmsaPath, $TempRoot)) {
 	New-Item -Path $dir -ItemType Directory -Force | Out-Null
 }
 
@@ -53,12 +68,17 @@ Start-Process -FilePath "$TempRoot\driver.exe" -ArgumentList @('-s', '-noreboot'
 
 # Download the Kubernetes components
 $webClient = New-Object System.Net.WebClient
+CreatePathIfNotExists -FilePath "$KubernetesPath\kubelet.exe"
 $webClient.DownloadFile("$KubernetesDownload/kubelet.exe", "$KubernetesPath\kubelet.exe")
+CreatePathIfNotExists -FilePath "$KubernetesPath\kube-proxy.exe"
 $webClient.DownloadFile("$KubernetesDownload/kube-proxy.exe", "$KubernetesPath\kube-proxy.exe")
+CreatePathIfNotExists -FilePath "$EKSPath\aws-iam-authenticator.exe"
 $webClient.DownloadFile("$KubernetesDownload/aws-iam-authenticator.exe", "$EKSPath\aws-iam-authenticator.exe")
+CreatePathIfNotExists -FilePath "$EKSPath\credential-providers\ecr-credential-provider.exe"
+$webClient.DownloadFile("$KubernetesDownload/ecr-credential-provider", "$EKSPath\credential-providers\ecr-credential-provider.exe")
 
 # Download the EKS artifacts archive
-$webClient.DownloadFile("https://ec2imagebuilder-managed-resources-us-east-1-prod.s3.amazonaws.com/components/eks-optimized-ami-windows/1.26.0/EKS-Artifacts.zip", "C:\EKS-Artifacts.zip")
+$webClient.DownloadFile("https://ec2imagebuilder-managed-resources-us-east-1-prod.s3.amazonaws.com/components/eks-optimized-ami-windows/1.30.0/EKS-Artifacts.zip", "C:\EKS-Artifacts.zip")
 
 # Extract the EKS artifacts archive
 Expand-Archive -Path "C:\EKS-Artifacts.zip" -DestinationPath $TempRoot
@@ -70,12 +90,16 @@ Move-Item -Path "$TempPath\containerd.exe" -Destination "$ContainerdPath\contain
 Move-Item -Path "$TempPath\containerd-shim-runhcs-v1.exe" -Destination "$ContainerdPath\containerd-shim-runhcs-v1.exe" -Force
 Move-Item -Path "$TempPath\Start-EKSBootstrap.ps1" -Destination "$EKSPath\Start-EKSBootstrap.ps1" -Force
 Move-Item -Path "$TempPath\EKS-StartupTask.ps1" -Destination "$EKSPath\EKS-StartupTask.ps1" -Force
-Move-Item -Path "$TempPath\vpc-shared-eni.exe" -Destination "$CNIPath\vpc-shared-eni.exe" -Force
-Move-Item -Path "$TempPath\csi-proxy.exe" -Destination "$CSIProxyPath\csi-proxy.exe" -Force
+Move-Item -Path "$TempPath\vpc-bridge.exe" -Destination "$CNIPath\vpc-bridge.exe" -Force
+Move-Item -Path "$TempPath\aws-vpc-cni-k8s-connector.exe" -Destination "$EKSBinPath\aws-vpc-cni-k8s-connector.exe" -Force
+Move-Item -Path "$TempPath\csi-proxy.exe" -Destination "$EKSBinPath\csi-proxy.exe" -Force
+Move-Item -Path "$TempPath\ecr-credential-provider-config.json" -Destination "$EKSPath\ecr-credential-provider-config.json" -Force
 
 # Install the Windows Containers feature
 # (Note: this is actually a no-op here, since we install the feature beforehand in startup.ps1)
 Install-WindowsFeature -Name Containers
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HnsIpOverlapChange -Value 0 -Type DWORD
+Restart-Service hns -Force
 
 # -------
 
@@ -122,7 +146,7 @@ Pop-Location
 Push-Location $TempPath
 & .\create-windows-pause-image.ps1 -ContainerRuntime containerd
 & .\Get-EKSBaseLayers.ps1 -ConfigFile eks.baselayers.config -ContainerRuntime containerd
-& .\Add-CSIProxy.ps1 -Path "$CSIProxyPath" -LogPath "$EKSLogsPath"
+& .\Add-CSIProxy.ps1 -Path "$EKSBinPath" -LogPath "$EKSLogsPath"
 & .\EKS-WindowsServiceHost.ps1
 & .\Install-EKSWorkerNode.ps1
 Pop-Location
